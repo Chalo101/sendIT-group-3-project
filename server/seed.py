@@ -1,9 +1,9 @@
-from server import app, db
-from server.models import Parcel, Destination, User, Admin
+from app import app, db
+from models import Parcel, Destination, User, Admin
 from faker import Faker
 from random import choice as rc
 
-if __name__ == '__main__':
+def seed_data():
     fake = Faker()
     with app.app_context():
         # Clear existing data
@@ -33,7 +33,7 @@ if __name__ == '__main__':
             Admin(first_name="Paul", last_name="Saitabau", email="paul@gmail.com", password="paul123"),
             Admin(first_name="Alvin", last_name="Kyle", email="alvin@gmail.com", password="alvin123"),
             Admin(first_name="Teddy", last_name="Kiplagat", email="teddy@gmail.com", password="teddy123"),
-            Admin(first_name="Ted", last_name="Muigai", email="ted@gmail.com", password="muigai123"),  # New Admin
+            Admin(first_name="Ted", last_name="Muigai", email="ted@gmail.com", password="muigai123"),
             Admin(first_name=fake.first_name(), last_name=fake.last_name(), email=fake.email(), password="password123")
         ]
         db.session.add_all(admins)
@@ -64,7 +64,5 @@ if __name__ == '__main__':
         db.session.commit()
         print("Seeding complete.")
 
-
-
-
-
+if __name__ == '__main__':
+    seed_data()

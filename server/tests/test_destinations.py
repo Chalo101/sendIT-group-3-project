@@ -1,6 +1,6 @@
 import pytest
-from app import db
-from models import Destination
+from server.app import db
+from server.models import Destination
 
 def test_create_destination(test_client, init_database):
     response = test_client.post('/destinations', json={

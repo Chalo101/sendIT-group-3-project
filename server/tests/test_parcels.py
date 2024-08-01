@@ -1,6 +1,6 @@
 import pytest
-from app import db
-from models import User, Parcel, Destination
+from server.app import db
+from server.models import User, Parcel, Destination
 from flask_jwt_extended import create_access_token
 
 def test_create_parcel(test_client, init_database):

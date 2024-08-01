@@ -1,6 +1,6 @@
 import pytest
-from app import db
-from models import Admin
+from server.app import db
+from server.models import Admin
 
 def test_admin_registration(test_client, init_database):
     response = test_client.post('/admin/register', json={

@@ -1,8 +1,30 @@
+from flask import Flask, jsonify, request, make_response
+from flask_restful import Api, Resource
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import hmac
 
-from flask import Flask, jsonify, request, session, make_response
-from flask_restful import Resource
-from models import User
-from flask_bcrypt import generate_password_hash
+# Define a safe string comparison function
+def safe_str_cmp(a, b):
+    return hmac.compare_digest(a, b)
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sendit.db'  # Ensure this path is correct
+app.config['SECRET_KEY'] = 'your_secret_key'  # Update as needed
+
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+jwt = JWTManager(app)
+api = Api(app)
+
+# Import models after initializing db
+from server.models import User, Admin, Parcel, Destination
+
+# Define a simple home route
+@app.route('/')
+def home():
+    return jsonify({'message': 'Welcome to the SendIT API!'}), 200
 
 class Users(Resource):
     def get(self, user_id):
@@ -12,16 +34,20 @@ class Users(Resource):
     def patch(self, user_id):
         data = request.get_json()
         user = User.query.get(user_id)
-        user.email = data['email']
-        user.password = data['password']
-        db.session.commit()
-        return make_response(jsonify(user.to_dict()), 200)
+        if user:
+            user.email = data['email']
+            user.password = data['password']
+            db.session.commit()
+            return make_response(jsonify(user.to_dict()), 200)
+        return jsonify({'message': 'User not found'}), 404
     
     def delete(self, user_id):
         user = User.query.get(user_id)
-        db.session.delete(user)
-        db.session.commit()
-        return '', 204
+        if user:
+            db.session.delete(user)
+            db.session.commit()
+            return '', 204
+        return jsonify({'message': 'User not found'}), 404
 
 class UserList(Resource):
     def get(self):
@@ -33,42 +59,21 @@ class UserList(Resource):
         if not data:
             return {'error': 'No data provided'}, 400
         try:
-           hashed_password = generate_password_hash(data['password'])
-           user = User(
-              email = data['email'],
-              password_hash = hashed_password
-           )
-           """ db.session.add(user)
-           db.session.commit() """
+            hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+            user = User(
+                email=data['email'],
+                password_hash=hashed_password
+            )
+            db.session.add(user)
+            db.session.commit()
+            return make_response(jsonify(user.to_dict()), 201)
         except Exception as e:
-           print("Error:", e) 
-           """ db.session.rollback() """
-           return {'error': str(e)}, 400
-    
+            db.session.rollback()
+            return {'error': str(e)}, 400
+
 api.add_resource(UserList, '/users')
 api.add_resource(Users, '/users/<int:user_id>')
-=======
-from flask import Flask, jsonify, request
-from flask_sqlalchemy import SQLAlchemy
-from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///your_database.db'  # Update as needed
-app.config['SECRET_KEY'] = 'your_secret_key'  # Update as needed
-
-db = SQLAlchemy(app)
-bcrypt = Bcrypt(app)
-jwt = JWTManager(app)
-
-from server.models import User, Admin, Parcel, Destination
-
-# Define a simple home route
-@app.route('/')
-def home():
-    return jsonify({'message': 'Welcome to the SendIT API!'}), 200
-
-# Define routes for parcel management
 @app.route('/parcels', methods=['POST'])
 @jwt_required()
 def create_parcel():

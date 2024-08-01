@@ -1,6 +1,6 @@
 import pytest
-from app import db
-from models import User
+from server.app import db
+from server.models import User
 
 def test_user_registration(test_client, init_database):
     response = test_client.post('/users', json={
