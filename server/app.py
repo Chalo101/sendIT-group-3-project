@@ -26,17 +26,22 @@ from server.models import User, Admin, Parcel, Destination
 def home():
     return jsonify({'message': 'Welcome to the SendIT API!'}), 200
 
+# Define resources for Users
 class Users(Resource):
     def get(self, user_id):
         user = User.query.get(user_id)
-        return make_response(jsonify(user.to_dict()), 200)
+        if user:
+            return make_response(jsonify(user.to_dict()), 200)
+        return jsonify({'message': 'User not found'}), 404
     
     def patch(self, user_id):
         data = request.get_json()
         user = User.query.get(user_id)
         if user:
-            user.email = data['email']
-            user.password = data['password']
+            if 'email' in data:
+                user.email = data['email']
+            if 'password' in data:
+                user.password_hash = bcrypt.generate_password_hash(data['password']).decode('utf-8')
             db.session.commit()
             return make_response(jsonify(user.to_dict()), 200)
         return jsonify({'message': 'User not found'}), 404
@@ -56,8 +61,8 @@ class UserList(Resource):
     
     def post(self):
         data = request.get_json()
-        if not data:
-            return {'error': 'No data provided'}, 400
+        if not data or 'email' not in data or 'password' not in data:
+            return {'error': 'Missing data'}, 400
         try:
             hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
             user = User(
@@ -74,19 +79,20 @@ class UserList(Resource):
 api.add_resource(UserList, '/users')
 api.add_resource(Users, '/users/<int:user_id>')
 
+# Define routes for Parcels
 @app.route('/parcels', methods=['POST'])
 @jwt_required()
 def create_parcel():
     data = request.get_json()
-    if not data or not data.get('parcel_item') or not data.get('parcel_weight'):
+    if not data or not all(k in data for k in ('parcel_item', 'parcel_weight', 'destination_id')):
         return jsonify({'message': 'Missing parcel information'}), 400
 
     current_user = get_jwt_identity()
     new_parcel = Parcel(
         parcel_item=data.get('parcel_item'),
-        parcel_description=data.get('parcel_description'),
+        parcel_description=data.get('parcel_description', ''),
         parcel_weight=data.get('parcel_weight'),
-        parcel_cost=data.get('parcel_cost'),
+        parcel_cost=data.get('parcel_cost', 0),
         parcel_status='Pending',
         user_id=current_user['id'],
         destination_id=data.get('destination_id')
@@ -149,16 +155,20 @@ def delete_parcel(parcel_id):
     db.session.commit()
     return jsonify({'message': 'Parcel deleted successfully'}), 200
 
+# Define routes for Admins
 @app.route('/admin/register', methods=['POST'])
 def admin_register():
     data = request.get_json()
+    if not data or 'email' not in data or 'password' not in data or 'first_name' not in data or 'last_name' not in data:
+        return jsonify({'message': 'Missing data'}), 400
     if Admin.query.filter_by(email=data['email']).first():
         return jsonify({'message': 'Admin already exists'}), 400
+    hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
     new_admin = Admin(
         first_name=data['first_name'],
         last_name=data['last_name'],
         email=data['email'],
-        password=data['password']
+        password_hash=hashed_password
     )
     db.session.add(new_admin)
     db.session.commit()
@@ -169,7 +179,7 @@ def admin_login():
     data = request.get_json()
     admin = Admin.query.filter_by(email=data['email']).first()
 
-    if admin and admin.verify_password(data['password']):
+    if admin and bcrypt.check_password_hash(admin.password_hash, data['password']):
         access_token = create_access_token(identity=admin.id)
         return jsonify({'access_token': access_token}), 200
     return jsonify({'message': 'Invalid credentials'}), 401
@@ -184,6 +194,8 @@ def admin_change_status(parcel_id):
         return jsonify({'message': 'You are not an admin'}), 403
     
     parcel = Parcel.query.get_or_404(parcel_id)
+    if 'parcel_status' not in data:
+        return jsonify({'message': 'No status provided'}), 400
     parcel.parcel_status = data['parcel_status']
     db.session.commit()
     return jsonify({'message': 'Status updated successfully'}), 200
