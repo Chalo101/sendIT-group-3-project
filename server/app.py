@@ -148,7 +148,6 @@ class MyOrders(Resource):
         
         db.session.delete(myorder)
 
-
     def post(self):
         data = request.get_json()
 
