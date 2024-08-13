@@ -381,11 +381,8 @@ def admin_change_status(parcel_id):
         return jsonify({'message': 'You are not an admin'}), 403
     
     parcel = Parcel.query.get_or_404(parcel_id)
-    if 'parcel_status' in data:
-        parcel.parcel_status = data['parcel_status']
-    if 'destination_id' in data:
-        parcel.destination_id = data['destination_id']  # Ensure destination_id is also updated if needed
-
+    parcel.parcel_status = data['parcel_status']
+    
     db.session.commit()
     return jsonify({'message': 'Status updated successfully'}), 200
 
